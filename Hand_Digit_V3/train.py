@@ -1,38 +1,61 @@
-import cv2
 import numpy as np
+from sklearn.datasets import fetch_mldata
+import matplotlib
+import matplotlib.pyplot as plt
+from sklearn.model_selection import train_test_split
+from sklearn.linear_model import LogisticRegression
+from sklearn.metrics import accuracy_score
 from sklearn.externals import joblib
-from skimage.feature import hog
 
-theta = np.loadtxt('theta.txt')
 
-img=cv2.imread('D:\Desktop\OpenCv lib\so1.jpg')
-img_gray=cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
-img_gray=cv2.GaussianBlur(img_gray, (5,5), 0)
-_,im_th=cv2.threshold(img_gray, 155, 255, cv2.THRESH_BINARY_INV)
-ctrs,_=cv2.findContours(im_th.copy(), cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
-rects=[cv2.boundingRect(ctr) for ctr in ctrs]
 
-for rect in rects:
-    cv2.rectangle(img,(rect[0],rect[1]),(rect[0]+rect[2],rect[1]+rect[3]),(0,0,255),3)
+mnist = fetch_mldata('mnist-original', data_home='./')
+N, d= mnist.data.shape
+x_all= mnist.data
+y_all= mnist.target
+print(N)
+print(d)
+#show some number in data set
 
-    leng = int(rect[3] * 1.6)
-    pt1 = int(rect[1] + rect[3] // 2 - leng // 2)
-    pt2 = int(rect[0] + rect[2] // 2 - leng // 2)
-    roi = im_th[pt1:pt1 + leng, pt2:pt2 + leng]
-    roi = cv2.resize(roi, (28, 28), im_th, interpolation=cv2.INTER_AREA)
-    roi = cv2.dilate(roi, (3, 3))
-    number=np.array([roi]).reshape(1,28*28)
-    # predict = model.predict(number)
-    one = np.ones((number.shape[0], 1))
-    number = np.concatenate((number, one), axis=1)
-    predict = 1.0/ (1+np.exp(-np.dot(number, theta.T)))
-    print('prediction', str(int(predict[0])))
-    print(predict)
-    cv2.putText(img,str(int(predict[0])),(rect[0],rect[1]),cv2.FONT_HERSHEY_SIMPLEX,1.5,(165,42,42),2)
+plt.imshow(x_all.T[:,3000].reshape(28,28))
+plt.axis("off")
+plt.show()
+# luc lai chi con 2 chu so 0 va 1
+X0=x_all[np.where(y_all==0)[0]]
+X1=x_all[np.where(y_all==1)[0]]
+y0=np.zeros(X0.shape[0])
+y1=np.ones(X1.shape[0])
 
-cv2.imshow('img', img)
-cv2.imshow('img_gray', img_gray)
-cv2.imshow('im_th', im_th)
-cv2.waitKey(0)
-cv2.destroyAllWindows()
+#gop 0 va 1 lai thanh 1 dataset
+X=np.concatenate((X0, X1),axis=0)
+Y=np.concatenate((y0, y1))
+one =np.ones((X.shape[0],1))
+X = np.concatenate((X,one), axis=1)
 
+def gradent_decent(X,y, theta_inist, eta=0.05):
+    theta_old = theta_inist
+    theta_epoch = theta_inist
+    N = X.shape[0]
+    for it in range(10000):
+        mrx_id = np.random.permutation(N)
+        for i in mrx_id:
+            xi = X[i,:]
+            yi = y[i]
+            hi = 1.0/ (1+np.exp(-np.dot(xi, theta_old.T)))
+            gi = (yi - hi)* xi
+            theta_new = theta_old + eta*gi
+            theta_old= theta_new
+
+        if np.linalg.norm(theta_epoch-theta_old)< 1e-1:
+            break
+
+        theta_epoch = theta_old
+        return theta_epoch, it
+
+theta_init= np.random.randn(1, X.shape[1])[0]
+# print (theta_init)
+theta, it= gradent_decent(X,Y,theta_init)
+print("nghiem:", theta)
+print("it:", it)
+
+np.savetxt('theta.txt', theta)
